@@ -9,9 +9,10 @@
 //! Each endpoint consumes or produces structured JSON payloads defined in `x402-rs`,
 //! and is compatible with official x402 client SDKs.
 
+use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{Html, Response};
-use axum::{Extension, Json, response::IntoResponse};
+use axum::{Json, response::IntoResponse};
 use serde::Serialize;
 use serde_json::json;
 use tracing::instrument;
@@ -64,9 +65,7 @@ pub async fn get_settle_info() -> impl IntoResponse {
 /// Facilitators may expose this to help clients dynamically configure their payment requests
 /// based on available network and scheme support.
 #[instrument(skip_all)]
-pub async fn get_supported(
-    Extension(facilitator): Extension<FacilitatorLocal>,
-) -> impl IntoResponse {
+pub async fn get_supported(State(facilitator): State<FacilitatorLocal>) -> impl IntoResponse {
     let kinds = facilitator.kinds();
     (
         StatusCode::OK,
@@ -76,26 +75,7 @@ pub async fn get_supported(
     )
 }
 
-/// `GET /`: Minimal landing page with an animated ASCII splash.
-#[instrument(skip_all)]
-pub async fn landing_page() -> impl IntoResponse {
-    Html(LANDING_PAGE)
-}
-
-#[instrument(skip_all)]
-pub async fn get_landing_status(
-    Extension(facilitator): Extension<FacilitatorLocal>,
-) -> impl IntoResponse {
-    let status = LandingStatus {
-        generated_at: UnixTimestamp::try_now().ok(),
-        supported: facilitator.kinds(),
-        providers: facilitator.health(),
-    };
-
-    Json(status)
-}
-
-pub async fn get_health(Extension(facilitator): Extension<FacilitatorLocal>) -> impl IntoResponse {
+pub async fn get_health(State(facilitator): State<FacilitatorLocal>) -> impl IntoResponse {
     let health = facilitator.health();
     (
         StatusCode::OK,
@@ -107,6 +87,27 @@ pub async fn get_health(Extension(facilitator): Extension<FacilitatorLocal>) -> 
 
 const LANDING_PAGE: &str = include_str!("landing.html");
 
+#[instrument(skip_all)]
+pub async fn landing_page() -> impl IntoResponse {
+    Html(LANDING_PAGE)
+}
+
+#[instrument(skip_all)]
+pub async fn get_landing_status(State(facilitator): State<FacilitatorLocal>) -> impl IntoResponse {
+    let supported = facilitator.kinds();
+    let providers = facilitator.health();
+    let generated_at = UnixTimestamp::try_now().ok();
+
+    (
+        StatusCode::OK,
+        Json(LandingStatus {
+            generated_at,
+            supported,
+            providers,
+        }),
+    )
+}
+
 /// `POST /verify`: Facilitator-side verification of a proposed x402 payment.
 ///
 /// This endpoint checks whether a given payment payload satisfies the declared
@@ -115,7 +116,7 @@ const LANDING_PAGE: &str = include_str!("landing.html");
 /// Responds with a [`VerifyResponse`] indicating whether the payment can be accepted.
 #[instrument(skip_all)]
 pub async fn post_verify(
-    Extension(facilitator): Extension<FacilitatorLocal>,
+    State(facilitator): State<FacilitatorLocal>,
     Json(body): Json<VerifyRequest>,
 ) -> impl IntoResponse {
     match facilitator.verify(&body).await {
@@ -139,7 +140,7 @@ pub async fn post_verify(
 /// This endpoint is typically called after a successful `/verify` step.
 #[instrument(skip_all)]
 pub async fn post_settle(
-    Extension(facilitator): Extension<FacilitatorLocal>,
+    State(facilitator): State<FacilitatorLocal>,
     Json(body): Json<SettleRequest>,
 ) -> impl IntoResponse {
     match facilitator.settle(&body).await {
