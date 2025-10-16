@@ -10,17 +10,19 @@
 //! and is compatible with official x402 client SDKs.
 
 use axum::http::StatusCode;
-use axum::response::Response;
+use axum::response::{Html, Response};
 use axum::{Extension, Json, response::IntoResponse};
+use serde::Serialize;
 use serde_json::json;
 use tracing::instrument;
 
 use crate::chain::FacilitatorLocalError;
 use crate::facilitator::Facilitator;
-use crate::facilitator_local::FacilitatorLocal;
+use crate::facilitator_local::{FacilitatorLocal, HealthStatus};
+use crate::timestamp::UnixTimestamp;
 use crate::types::{
-    ErrorResponse, FacilitatorErrorReason, MixedAddress, SettleRequest, VerifyRequest,
-    VerifyResponse,
+    ErrorResponse, FacilitatorErrorReason, MixedAddress, SettleRequest, SupportedPaymentKind,
+    VerifyRequest, VerifyResponse,
 };
 
 /// `GET /verify`: Returns a machine-readable description of the `/verify` endpoint.
@@ -74,6 +76,25 @@ pub async fn get_supported(
     )
 }
 
+/// `GET /`: Minimal landing page with an animated ASCII splash.
+#[instrument(skip_all)]
+pub async fn landing_page() -> impl IntoResponse {
+    Html(LANDING_PAGE)
+}
+
+#[instrument(skip_all)]
+pub async fn get_landing_status(
+    Extension(facilitator): Extension<FacilitatorLocal>,
+) -> impl IntoResponse {
+    let status = LandingStatus {
+        generated_at: UnixTimestamp::try_now().ok(),
+        supported: facilitator.kinds(),
+        providers: facilitator.health(),
+    };
+
+    Json(status)
+}
+
 pub async fn get_health(Extension(facilitator): Extension<FacilitatorLocal>) -> impl IntoResponse {
     let health = facilitator.health();
     (
@@ -83,6 +104,8 @@ pub async fn get_health(Extension(facilitator): Extension<FacilitatorLocal>) -> 
         })),
     )
 }
+
+const LANDING_PAGE: &str = include_str!("landing.html");
 
 /// `POST /verify`: Facilitator-side verification of a proposed x402 payment.
 ///
@@ -134,6 +157,15 @@ pub async fn post_settle(
 
 fn invalid_schema(payer: Option<MixedAddress>) -> VerifyResponse {
     VerifyResponse::invalid(payer, FacilitatorErrorReason::InvalidScheme)
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LandingStatus {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    generated_at: Option<UnixTimestamp>,
+    supported: Vec<SupportedPaymentKind>,
+    providers: Vec<HealthStatus>,
 }
 
 impl IntoResponse for FacilitatorLocalError {

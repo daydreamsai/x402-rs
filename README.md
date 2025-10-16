@@ -32,6 +32,7 @@ docker run --env-file .env -p 8080:8080 ukstv/x402-facilitator
 ```
 
 Or build locally:
+
 ```shell
 docker build -t x402-rs .
 docker run --env-file .env -p 8080:8080 x402-rs
@@ -47,7 +48,7 @@ Use `x402-axum` to gate your routes behind on-chain payments:
 let x402 = X402Middleware::try_from("https://x402.org/facilitator/").unwrap();
 let usdc = USDCDeployment::by_network(Network::BaseSepolia);
 
-let app = Router::new().route("/paid-content", get(handler).layer( 
+let app = Router::new().route("/paid-content", get(handler).layer(
         x402.with_price_tag(usdc.amount("0.025").pay_to("0xYourAddress").unwrap())
     ),
 );
@@ -78,26 +79,28 @@ See [`x402-reqwest` crate docs](./crates/x402-reqwest/README.md).
 
 ## Roadmap
 
-| Milestone                           | Description                                                                                              |   Status   |
-|:------------------------------------|:---------------------------------------------------------------------------------------------------------|:----------:|
+| Milestone                           | Description                                                                                              |   Status    |
+| :---------------------------------- | :------------------------------------------------------------------------------------------------------- | :---------: |
 | Facilitator for Base USDC           | Payment verification and settlement service, enabling real-time pay-per-use transactions for Base chain. | ✅ Complete |
 | Metrics and Tracing                 | Expose OpenTelemetry metrics and structured tracing for observability, monitoring, and debugging         | ✅ Complete |
 | Server Middleware                   | Provide ready-to-use integration for Rust web frameworks such as axum and tower.                         | ✅ Complete |
 | Client Library                      | Provide a lightweight Rust library for initiating and managing x402 payment flows from Rust clients.     | ✅ Complete |
 | Solana Support                      | Support Solana chain.                                                                                    | ✅ Complete |
 | Multiple chains and multiple tokens | Support various tokens and EVM compatible chains.                                                        | ⏳ Planned  |
-| Payment Storage                     | Persist verified and settled payments for analytics, access control, and auditability.                   | 🔜 Planned |
-| Micropayment Support                | Enable fine-grained offchain usage-based payments, including streaming and per-request billing.          | 🔜 Planned |
+| Payment Storage                     | Persist verified and settled payments for analytics, access control, and auditability.                   | 🔜 Planned  |
+| Micropayment Support                | Enable fine-grained offchain usage-based payments, including streaming and per-request billing.          | 🔜 Planned  |
 
 The initial focus is on establishing a stable, production-quality Rust SDK and middleware ecosystem for x402 integration.
 
 ## Facilitator
 
 The `x402-rs` crate (this repo) provides a runnable x402 facilitator binary. The _Facilitator_ role simplifies adoption of x402 by handling:
+
 - **Payment verification**: Confirming that client-submitted payment payloads match the declared requirements.
 - **Payment settlement**: Submitting validated payments to the blockchain and monitoring their confirmation.
 
 By using a Facilitator, servers (sellers) do not need to:
+
 - Connect directly to a blockchain.
 - Implement complex cryptographic or blockchain-specific payment logic.
 
@@ -125,6 +128,7 @@ RUST_LOG=info
 
 **Important:**
 The supported networks are determined by which RPC URLs you provide:
+
 - If you set only `RPC_URL_BASE_SEPOLIA`, then only Base Sepolia network is supported.
 - If you set both `RPC_URL_BASE_SEPOLIA` and `RPC_URL_BASE`, then both Base Sepolia and Base Mainnet are supported.
 - If an RPC URL for a network is missing, that network will not be available for settlement or verification.
@@ -132,29 +136,34 @@ The supported networks are determined by which RPC URLs you provide:
 #### 2. Build and Run with Docker
 
 Prebuilt Docker images are available at:
+
 - [GitHub Container Registry](https://ghcr.io/x402-rs/x402-facilitator): `ghcr.io/x402-rs/x402-facilitator`
 - [Docker Hub](https://hub.docker.com/r/ukstv/x402-facilitator): `ukstv/x402-facilitator`
 
 Run the container from Docker Hub:
+
 ```shell
 docker run --env-file .env -p 8080:8080 ukstv/x402-facilitator
 ```
 
 To run using GitHub Container Registry:
+
 ```shell
 docker run --env-file .env -p 8080:8080 ghcr.io/x402-rs/x402-facilitator
 ```
 
 Or build a Docker image locally:
+
 ```shell
 docker build -t x402-rs .
 docker run --env-file .env -p 8080:8080 x402-rs
 ```
 
 The container:
-* Exposes port `8080` (or a port you configure with `PORT` environment variable).
-* Starts on http://localhost:8080 by default.
-* Requires minimal runtime dependencies (based on `debian:bullseye-slim`).
+
+- Exposes port `8080` (or a port you configure with `PORT` environment variable).
+- Starts on http://localhost:8080 by default.
+- Requires minimal runtime dependencies (based on `debian:bullseye-slim`).
 
 #### 3. Point your application to your Facilitator
 
@@ -174,21 +183,23 @@ import { paymentMiddleware } from "x402-hono";
 const app = new Hono();
 
 // Configure the payment middleware
-app.use(paymentMiddleware(
-  "0xYourAddress", // Your receiving wallet address
-  {
-    "/protected-route": {
-      price: "$0.10",
-      network: "base-sepolia",
-      config: {
-        description: "Access to premium content",
-      }
+app.use(
+  paymentMiddleware(
+    "0xYourAddress", // Your receiving wallet address
+    {
+      "/protected-route": {
+        price: "$0.10",
+        network: "base-sepolia",
+        config: {
+          description: "Access to premium content",
+        },
+      },
+    },
+    {
+      url: "http://your-validator.url/", // 👈 Your self-hosted Facilitator
     }
-  },
-  {
-    url: "http://your-validator.url/", // 👈 Your self-hosted Facilitator
-  }
-));
+  )
+);
 
 // Implement your protected route
 app.get("/protected-route", (c) => {
@@ -197,7 +208,7 @@ app.get("/protected-route", (c) => {
 
 serve({
   fetch: app.fetch,
-  port: 3000
+  port: 3000,
 });
 ```
 
@@ -210,7 +221,7 @@ serve({
 let x402 = X402Middleware::try_from("http://your-validator.url/").unwrap();  // 👈 Your self-hosted Facilitator
 let usdc = USDCDeployment::by_network(Network::BaseSepolia);
 
-let app = Router::new().route("/paid-content", get(handler).layer( 
+let app = Router::new().route("/paid-content", get(handler).layer(
         x402.with_price_tag(usdc.amount("0.025").pay_to("0xYourAddress").unwrap())
     ),
 );
@@ -224,23 +235,22 @@ The service reads configuration via `.env` file or directly through environment 
 
 Available variables:
 
-* `RUST_LOG`: Logging level (e.g., `info`, `debug`, `trace`),
-* `HOST`: HTTP host to bind to (default: `0.0.0.0`),
-* `PORT`: HTTP server port (default: `8080`),
-* `SIGNER_TYPE` (required): Type of signer to use. Only `private-key` is supported now,
-* `EVM_PRIVATE_KEY` (required): Private key in hex for EVM networks, like `0xdeadbeef...`,
-* `SOLANA_PRIVATE_KEY` (required): Private key in hex for Solana networks, like `0xdeadbeef...`,
-* `RPC_URL_BASE_SEPOLIA`: Ethereum RPC endpoint for Base Sepolia testnet,
-* `RPC_URL_BASE`: Ethereum RPC endpoint for Base mainnet,
-* `RPC_URL_AVALANCHE_FUJI`: Ethereum RPC endpoint for Avalanche Fuji testnet,
-* `RPC_URL_AVALANCHE`: Ethereum RPC endpoint for Avalanche C-Chain mainnet.
-* `RPC_URL_SOLANA`: RPC endpoint for Solana mainnet.
-* `RPC_URL_SOLANA_DEVNET`: RPC endpoint for Solana devnet.
-* `RPC_URL_POLYGON`: RPC endpoint for Polygon mainnet.
-* `RPC_URL_POLYGON_AMOY`: RPC endpoint for Polygon Amoy testnet.
-* `RPC_URL_SEI`: RPC endpoint for Sei mainnet.
-* `RPC_URL_SEI_TESTNET`: RPC endpoint for Sei testnet.
-
+- `RUST_LOG`: Logging level (e.g., `info`, `debug`, `trace`),
+- `HOST`: HTTP host to bind to (default: `0.0.0.0`),
+- `PORT`: HTTP server port (default: `8080`),
+- `SIGNER_TYPE` (required): Type of signer to use. Only `private-key` is supported now,
+- `EVM_PRIVATE_KEY` (required): Private key in hex for EVM networks, like `0xdeadbeef...`,
+- `SOLANA_PRIVATE_KEY` (required): Private key in hex for Solana networks, like `0xdeadbeef...`,
+- `RPC_URL_BASE_SEPOLIA`: Ethereum RPC endpoint for Base Sepolia testnet,
+- `RPC_URL_BASE`: Ethereum RPC endpoint for Base mainnet,
+- `RPC_URL_AVALANCHE_FUJI`: Ethereum RPC endpoint for Avalanche Fuji testnet,
+- `RPC_URL_AVALANCHE`: Ethereum RPC endpoint for Avalanche C-Chain mainnet.
+- `RPC_URL_SOLANA`: RPC endpoint for Solana mainnet.
+- `RPC_URL_SOLANA_DEVNET`: RPC endpoint for Solana devnet.
+- `RPC_URL_POLYGON`: RPC endpoint for Polygon mainnet.
+- `RPC_URL_POLYGON_AMOY`: RPC endpoint for Polygon Amoy testnet.
+- `RPC_URL_SEI`: RPC endpoint for Sei mainnet.
+- `RPC_URL_SEI_TESTNET`: RPC endpoint for Sei testnet.
 
 ### Observability
 
@@ -267,18 +277,18 @@ The service automatically detects and initializes exporters if `OTEL_EXPORTER_OT
 The Facilitator supports different networks based on the environment variables you configure:
 
 | Network                   | Environment Variable     | Supported if Set | Notes                            |
-|:--------------------------|:-------------------------|:-----------------|:---------------------------------|
-| Base Sepolia Testnet      | `RPC_URL_BASE_SEPOLIA`   | ✅                | Testnet, Recommended for testing |
-| Base Mainnet              | `RPC_URL_BASE`           | ✅                | Mainnet                          |
-| XDC Mainnet               | `RPC_URL_XDC`            | ✅                | Mainnet                          |
-| Avalanche Fuji Testnet    | `RPC_URL_AVALANCHE_FUJI` | ✅                | Testnet                          |
-| Avalanche C-Chain Mainnet | `RPC_URL_AVALANCHE`      | ✅                | Mainnet                          |
-| Polygon Amoy Testnet      | `RPC_URL_POLYGON_AMOY`   | ✅                | Testnet                          |
-| Polygon Mainnet           | `RPC_URL_POLYGON`        | ✅                | Mainnet                          |
-| Sei Testnet               | `RPC_URL_SEI_TESTNET`    | ✅                | Testnet                          |
-| Sei Mainnet               | `RPC_URL_SEI`            | ✅                | Mainnet                          |
-| Solana Mainnet            | `RPC_URL_SOLANA`         | ✅                | Mainnet                          |
-| Solana Devnet             | `RPC_URL_SOLANA_DEVNET`  | ✅                | Testnet, Recommended for testing |
+| :------------------------ | :----------------------- | :--------------- | :------------------------------- |
+| Base Sepolia Testnet      | `RPC_URL_BASE_SEPOLIA`   | ✅               | Testnet, Recommended for testing |
+| Base Mainnet              | `RPC_URL_BASE`           | ✅               | Mainnet                          |
+| XDC Mainnet               | `RPC_URL_XDC`            | ✅               | Mainnet                          |
+| Avalanche Fuji Testnet    | `RPC_URL_AVALANCHE_FUJI` | ✅               | Testnet                          |
+| Avalanche C-Chain Mainnet | `RPC_URL_AVALANCHE`      | ✅               | Mainnet                          |
+| Polygon Amoy Testnet      | `RPC_URL_POLYGON_AMOY`   | ✅               | Testnet                          |
+| Polygon Mainnet           | `RPC_URL_POLYGON`        | ✅               | Mainnet                          |
+| Sei Testnet               | `RPC_URL_SEI_TESTNET`    | ✅               | Testnet                          |
+| Sei Mainnet               | `RPC_URL_SEI`            | ✅               | Mainnet                          |
+| Solana Mainnet            | `RPC_URL_SOLANA`         | ✅               | Mainnet                          |
+| Solana Devnet             | `RPC_URL_SOLANA_DEVNET`  | ✅               | Testnet, Recommended for testing |
 
 - If you provide say only `RPC_URL_BASE_SEPOLIA`, only **Base Sepolia** will be available.
 - If you provide `RPC_URL_BASE_SEPOLIA`, `RPC_URL_BASE`, and other env variables on the list, then all the specified networks will be supported.
@@ -288,25 +298,30 @@ The Facilitator supports different networks based on the environment variables y
 ### Development
 
 Prerequisites:
+
 - Rust 1.80+
 - `cargo` and a working toolchain
 
 Build locally:
+
 ```shell
 cargo build
 ```
+
 Run:
+
 ```shell
 cargo run
 ```
 
 ## Related Resources
 
-* [x402 Protocol Documentation](https://x402.org)
-* [x402 Overview by Coinbase](https://docs.cdp.coinbase.com/x402/docs/overview)
-* [Facilitator Documentation by Coinbase](https://docs.cdp.coinbase.com/x402/docs/facilitator)
+- [x402 Protocol Documentation](https://x402.org)
+- [x402 Overview by Coinbase](https://docs.cdp.coinbase.com/x402/docs/overview)
+- [Facilitator Documentation by Coinbase](https://docs.cdp.coinbase.com/x402/docs/facilitator)
 
 ## Contributions and feedback welcome!
+
 Feel free to open issues or pull requests to improve x402 support in the Rust ecosystem.
 
 ## License
