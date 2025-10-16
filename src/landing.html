@@ -122,16 +122,17 @@ a:focus {
 
 .header__eyebrow {
     text-transform: uppercase;
-    letter-spacing: 0.28em;
+    letter-spacing: 0.06em;
     font-size: 0.72rem;
     color: var(--text-muted);
 }
 
 .header__title {
     margin: 0;
-    font-size: clamp(1.4rem, 3vw, 2rem);
-    letter-spacing: 0.32em;
+    font-size: clamp(1.8rem, 4vw, 2.6rem);
+    letter-spacing: 0;
     text-transform: uppercase;
+    font-weight: 600;
 }
 
 .status-indicator {
@@ -374,8 +375,8 @@ a:focus {
     <div class="dashboard__container">
     <header class="dashboard__header">
         <div class="header__identity">
-            <span class="header__eyebrow">daydreams.systems</span>
-            <h1 class="header__title">Daydreams</h1>
+            <span class="header__eyebrow">DAYDREAMS.SYSTEMS</span>
+            <h1 class="header__title">DAYDREAMS.SYSTEMS</h1>
         </div>
         <div class="status-indicator" data-role="status-indicator" data-phase="loading">
             <span class="status-indicator__dot" aria-hidden="true"></span>
@@ -655,6 +656,22 @@ a:focus {
         return new Date(ms).toISOString();
     };
 
+    const truncateToken = (token) => {
+        const prefixLength = token.startsWith('0x') ? 10 : 8;
+        const suffixLength = 6;
+        if (token.length <= prefixLength + suffixLength + 1) {
+            return token;
+        }
+        return `${token.slice(0, prefixLength)}…${token.slice(-suffixLength)}`;
+    };
+
+    const truncateIdentifiers = (value) => {
+        if (typeof value !== 'string') {
+            return value;
+        }
+        return value.replace(/[A-Za-z0-9]{20,}/g, (match) => truncateToken(match));
+    };
+
     const createRow = (key, value, options = {}) => {
         const row = document.createElement('div');
         row.className = 'row' + (options.stacked ? ' row--stacked' : '');
@@ -666,13 +683,24 @@ a:focus {
 
         const valueEl = document.createElement('span');
         valueEl.className = 'row__value';
-        valueEl.textContent = value ?? '—';
+        const originalValue = value ?? '—';
+        const normalizedValue = originalValue === '—' ? '—' : String(originalValue);
+        const displayValue = truncateIdentifiers(normalizedValue);
+        valueEl.textContent = displayValue;
+        if (displayValue !== normalizedValue) {
+            valueEl.title = normalizedValue;
+        }
         row.append(valueEl);
 
         if (options.meta) {
             const metaEl = document.createElement('span');
             metaEl.className = 'row__meta';
-            metaEl.textContent = options.meta;
+            const metaNormalized = String(options.meta);
+            const metaDisplay = truncateIdentifiers(metaNormalized);
+            metaEl.textContent = metaDisplay;
+            if (metaDisplay !== metaNormalized) {
+                metaEl.title = metaNormalized;
+            }
             row.append(metaEl);
         }
 
